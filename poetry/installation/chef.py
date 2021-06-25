@@ -2,6 +2,7 @@ import hashlib
 import json
 import tarfile
 import tempfile
+import threading
 import zipfile
 
 from contextlib import redirect_stdout
@@ -25,7 +26,7 @@ from .chooser import Wheel
 if TYPE_CHECKING:
     from poetry.config.config import Config
     from poetry.utils.env import Env
-    from poetry.utils.env import EnvManager
+    from poetry.utils.env import EnvManager  # noqa
 
 
 class IsolatedEnv(BaseIsolatedEnv):
@@ -79,6 +80,7 @@ class Chef:
         self._cache_dir = (
             Path(config.get("cache-dir")).expanduser().joinpath("artifacts")
         )
+        self._lock = threading.Lock()
 
     def prepare(self, archive: Path, output_dir: Optional[Path] = None) -> Path:
         if not self.should_prepare(archive):
@@ -125,32 +127,36 @@ class Chef:
             )
 
     def _prepare(self, directory: Path, destination: Path) -> Path:
-        from poetry.utils.env import EnvManager
+        from poetry.utils.env import EnvManager  # noqa
         from poetry.utils.env import VirtualEnv
 
-        with temporary_directory() as tmp_dir:
-            EnvManager.build_venv(tmp_dir, executable=self._env.python, with_pip=True)
-            venv = VirtualEnv(Path(tmp_dir))
-            env = IsolatedEnv(venv, self._config)
-            builder = ProjectBuilder(
-                directory,
-                python_executable=env.executable,
-                scripts_dir=env.scripts_dir,
-                runner=quiet_subprocess_runner,
-            )
-            env.install(builder.build_system_requires)
-            env.install(
-                builder.build_system_requires | builder.get_requires_for_build("wheel")
-            )
-
-            stdout = StringIO()
-            with redirect_stdout(stdout):
-                return Path(
-                    builder.build(
-                        "wheel",
-                        destination.as_posix(),
-                    )
+        with self._lock:
+            with temporary_directory() as tmp_dir:
+                EnvManager.build_venv(
+                    tmp_dir, executable=self._env.python, with_pip=True
                 )
+                venv = VirtualEnv(Path(tmp_dir))
+                env = IsolatedEnv(venv, self._config)
+                builder = ProjectBuilder(
+                    directory,
+                    python_executable=env.executable,
+                    scripts_dir=env.scripts_dir,
+                    runner=quiet_subprocess_runner,
+                )
+                env.install(builder.build_system_requires)
+                env.install(
+                    builder.build_system_requires
+                    | builder.get_requires_for_build("wheel")
+                )
+
+                stdout = StringIO()
+                with redirect_stdout(stdout):
+                    return Path(
+                        builder.build(
+                            "wheel",
+                            destination.as_posix(),
+                        )
+                    )
 
     def should_prepare(self, archive: Path) -> bool:
         return archive.is_dir() or not self.is_wheel(archive)
