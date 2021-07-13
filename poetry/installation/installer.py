@@ -502,9 +502,7 @@ class Installer:
             for installed in installed_repo.packages:
                 if locked.name == installed.name:
                     is_installed = True
-                    if locked.category == "dev" and not self.is_dev_mode():
-                        ops.append(Uninstall(locked))
-                    elif locked.optional and locked.name not in extra_packages:
+                    if locked.optional and locked.name not in extra_packages:
                         # Installed but optional and not requested in extras
                         ops.append(Uninstall(locked))
                     elif locked.version != installed.version:

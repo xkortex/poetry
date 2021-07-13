@@ -187,26 +187,6 @@ class Solver:
                 operations.append(Install(package, priority=depths[i]))
 
         # Checking for removals
-        for pkg in self._locked.packages:
-            remove = True
-            for package in packages:
-                if pkg.name == package.name:
-                    remove = False
-                    break
-
-            if remove:
-                skip = True
-                for installed in self._installed.packages:
-                    if installed.name == pkg.name:
-                        skip = False
-                        break
-
-                op = Uninstall(pkg)
-                if skip:
-                    op.skip("Not currently installed")
-
-                operations.append(op)
-
         if self._remove_untracked:
             locked_names = {locked.name for locked in self._locked.packages}
 
