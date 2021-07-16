@@ -347,6 +347,7 @@ def test_executor_should_delete_incomplete_downloads(
 
 def verify_installed_distribution(venv, package, url_reference=None):
     distributions = list(venv.site_packages.distributions(name=package.name))
+    print(distributions)
     assert len(distributions) == 1
 
     distribution = distributions[0]
@@ -460,6 +461,29 @@ def test_executor_should_write_pep610_url_references_for_git(
             "vcs_info": {
                 "vcs": "git",
                 "requested_revision": "master",
+                "commit_id": "123456",
+            },
+            "url": package.source_url,
+        },
+    )
+
+
+def test_executor_should_write_pep610_url_references_for_git_no_reference(
+    tmp_venv, pool, config, io, mock_file_downloads
+):
+    package = Package(
+        "demo",
+        "0.1.2",
+        source_type="git",
+        source_resolved_reference="123456",
+        source_url="https://github.com/demo/demo.git",
+    )
+    verify_installed_distribution(
+        tmp_venv,
+        package,
+        {
+            "vcs_info": {
+                "vcs": "git",
                 "commit_id": "123456",
             },
             "url": package.source_url,
